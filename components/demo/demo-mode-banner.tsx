@@ -181,7 +181,7 @@ export function DemoModeBanner({
               DEMO MODE
             </span>
             <span className="text-sm text-amber-800 dark:text-amber-200">
-              You&apos;re using a demo version of {config.appName}
+              You&apos;re using a demo version of {config.appName}. Please avoid uploading sensitive or confidential data.
             </span>
             {config.demoExpiryDays > 0 && (
               <span className="inline-flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">

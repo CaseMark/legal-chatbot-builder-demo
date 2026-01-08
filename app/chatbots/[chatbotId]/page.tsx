@@ -13,9 +13,6 @@ import {
   XCircle,
   Trash,
   Gear,
-  Code,
-  Copy,
-  Check,
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -43,11 +40,10 @@ export default function ChatbotManagePage() {
   const [documents, setDocuments] = useState<LocalDocument[]>([]);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});
-  const [activeTab, setActiveTab] = useState<"documents" | "settings" | "embed">(
+  const [activeTab, setActiveTab] = useState<"documents" | "settings">(
     "documents"
   );
   const [dragActive, setDragActive] = useState(false);
-  const [copied, setCopied] = useState(false);
   const [ragService, setRagService] = useState<RAGService | null>(null);
 
   // Settings form state - initialized from localStorage chatbot
@@ -288,17 +284,6 @@ export default function ChatbotManagePage() {
     }
   }
 
-  function getEmbedCode() {
-    const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
-    return `<script src="${baseUrl}/embed.js" data-chatbot-id="${chatbotId}"></script>`;
-  }
-
-  function handleCopy(text: string) {
-    navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }
-
   if (chatbotLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
@@ -378,18 +363,6 @@ export default function ChatbotManagePage() {
                 <Gear className="h-4 w-4" />
                 Settings
               </button>
-              <button
-                onClick={() => setActiveTab("embed")}
-                className={cn(
-                  "flex items-center gap-1.5 border-b-2 pb-3 text-sm font-medium transition-colors",
-                  activeTab === "embed"
-                    ? "border-primary text-primary"
-                    : "border-transparent text-muted-foreground hover:text-foreground"
-                )}
-              >
-                <Code className="h-4 w-4" />
-                Embed
-              </button>
             </nav>
           </div>
         </div>
@@ -402,8 +375,8 @@ export default function ChatbotManagePage() {
             {/* Info Banner */}
             <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
               <p className="text-sm text-blue-800">
-                <strong>Client-side processing:</strong> Documents are processed and stored locally in your browser. 
-                Your data never leaves your device (except for generating embeddings via API).
+                <strong>Your data stays on your device:</strong> Documents are processed and stored in your browser. 
+                Only text snippets are sent to generate searchable embeddings.
               </p>
             </div>
 
@@ -655,90 +628,6 @@ export default function ChatbotManagePage() {
           </div>
         )}
 
-        {activeTab === "embed" && (
-          <div className="space-y-6">
-            <div className="rounded-xl border bg-card p-6">
-              <h3 className="text-lg font-semibold text-foreground">
-                Embed Code
-              </h3>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Add this code to your website to embed the chatbot widget.
-              </p>
-
-              <div className="relative mt-4">
-                <pre className="overflow-x-auto rounded-lg bg-gray-900 p-4 text-sm text-gray-100">
-                  <code>{getEmbedCode()}</code>
-                </pre>
-                <button
-                  onClick={() => handleCopy(getEmbedCode())}
-                  className="absolute right-2 top-2 rounded bg-gray-800 px-3 py-1 text-xs font-medium text-gray-400 transition-colors hover:bg-gray-700 hover:text-white"
-                >
-                  {copied ? (
-                    <span className="flex items-center gap-1">
-                      <Check className="h-3 w-3" /> Copied
-                    </span>
-                  ) : (
-                    <span className="flex items-center gap-1">
-                      <Copy className="h-3 w-3" /> Copy
-                    </span>
-                  )}
-                </button>
-              </div>
-            </div>
-
-            <div className="rounded-xl border bg-card p-6">
-              <h3 className="text-lg font-semibold text-foreground">
-                Direct Link
-              </h3>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Share this link to open the chatbot in a full page.
-              </p>
-
-              <div className="mt-4 flex items-center gap-2">
-                <input
-                  type="text"
-                  readOnly
-                  value={
-                    typeof window !== "undefined"
-                      ? `${window.location.origin}/chatbots/${chatbotId}/chat`
-                      : ""
-                  }
-                  className="flex-1 rounded-lg border border-input bg-muted/50 px-3 py-2 text-sm"
-                />
-                <Button
-                  variant="outline"
-                  onClick={() =>
-                    handleCopy(
-                      `${window.location.origin}/chatbots/${chatbotId}/chat`
-                    )
-                  }
-                >
-                  {copied ? "Copied!" : "Copy"}
-                </Button>
-              </div>
-            </div>
-
-            <div className="rounded-xl border bg-card p-6">
-              <h3 className="text-lg font-semibold text-foreground">
-                Widget Preview
-              </h3>
-              <p className="mt-1 text-sm text-muted-foreground">
-                This is how the chat widget will appear on your website.
-              </p>
-
-              <div className="relative mt-4 h-96 overflow-hidden rounded-lg bg-muted">
-                <div className="absolute bottom-4 right-4">
-                  <button
-                    style={{ backgroundColor: settings.primaryColor }}
-                    className="flex h-14 w-14 items-center justify-center rounded-full text-white shadow-lg"
-                  >
-                    <ChatCircle className="h-6 w-6" weight="fill" />
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
       </main>
     </div>
   );

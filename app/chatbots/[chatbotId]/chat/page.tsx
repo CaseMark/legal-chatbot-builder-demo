@@ -18,6 +18,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { DemoModeBanner } from "@/components/demo/demo-mode-banner";
+import { MarkdownRenderer } from "@/components/chat/markdown-renderer";
 import { useChatbotWithHistory } from "@/hooks/use-chatbot-storage";
 import { RAGService, RAGContext } from "@/lib/rag";
 
@@ -313,9 +314,15 @@ export default function ChatbotChatPage() {
                         : "bg-muted text-foreground"
                     )}
                   >
-                    <div className="whitespace-pre-wrap text-sm">
-                      {message.content}
-                    </div>
+                    {message.role === "assistant" ? (
+                      <div className="text-sm prose prose-sm dark:prose-invert max-w-none">
+                        <MarkdownRenderer>{message.content}</MarkdownRenderer>
+                      </div>
+                    ) : (
+                      <div className="whitespace-pre-wrap text-sm">
+                        {message.content}
+                      </div>
+                    )}
                     {message.sources && message.sources.length > 0 && (
                       <SourcesDropdown sources={message.sources} />
                     )}

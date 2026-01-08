@@ -23,6 +23,7 @@ const publicRoutes = [
   "/api/embeddings", // Embeddings API (demo mode - no auth required)
   "/api/chatbots", // Chatbot API routes (demo mode - no auth required)
   "/api/demo", // Demo config routes
+  "/api-reference", // API reference docs
   "/chatbots", // Chatbot pages (demo mode)
 ];
 
@@ -68,6 +69,6 @@ export function proxy(request: NextRequest) {
  */
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|js)$).*)",
   ],
 };

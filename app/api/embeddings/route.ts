@@ -1,3 +1,5 @@
+const CASE_API_BASE = "https://api.case.dev";
+
 export async function POST(req: Request) {
   try {
     const { texts } = await req.json();
@@ -15,13 +17,13 @@ export async function POST(req: Request) {
       );
     }
 
-    const apiKey = process.env.CASEDEV_API_KEY || process.env.OPENAI_API_KEY;
+    const apiKey = process.env.CASEDEV_API_KEY;
 
     if (!apiKey) {
       return new Response(
         JSON.stringify({
           error: "CONFIGURATION_ERROR",
-          message: "API key not configured",
+          message: "CASEDEV_API_KEY not configured",
         }),
         {
           status: 500,
@@ -30,8 +32,8 @@ export async function POST(req: Request) {
       );
     }
 
-    const baseUrl = process.env.EMBEDDING_BASE_URL || "https://api.openai.com/v1";
-    const model = process.env.EMBEDDING_MODEL || "text-embedding-3-small";
+    // Use Case.dev's embeddings endpoint
+    const model = "openai/text-embedding-3-small";
 
     // Process in batches of 20
     const batchSize = 20;
@@ -40,7 +42,7 @@ export async function POST(req: Request) {
     for (let i = 0; i < texts.length; i += batchSize) {
       const batch = texts.slice(i, i + batchSize);
 
-      const response = await fetch(`${baseUrl}/embeddings`, {
+      const response = await fetch(`${CASE_API_BASE}/llm/v1/embeddings`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -54,7 +56,7 @@ export async function POST(req: Request) {
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error("Embedding API error:", errorText);
+        console.error("Case.dev Embedding API error:", errorText);
 
         // Return zero embeddings as fallback
         const fallbackEmbeddings = batch.map(() => new Array(1536).fill(0));

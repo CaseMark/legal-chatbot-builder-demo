@@ -10,8 +10,9 @@ const initializePDFJS = async () => {
   if (pdfjsLib) return;
   
   pdfjsLib = await import('pdfjs-dist');
-  // Use the worker file from public directory
-  pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
+  // Use the worker from unpkg CDN to ensure version match
+  const version = pdfjsLib.version;
+  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${version}/build/pdf.worker.min.mjs`;
 };
 
 const initializeMammoth = async () => {
