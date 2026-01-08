@@ -1,7 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Webpack configuration for PDF.js worker
+  // Turbopack configuration (empty config to silence warning)
+  turbopack: {},
+
+  // Webpack configuration for PDF.js worker (fallback for non-Turbopack builds)
   webpack: (config) => {
     // Handle PDF.js worker
     config.resolve.alias.canvas = false;

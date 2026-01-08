@@ -1,5 +1,5 @@
 /**
- * Next.js Middleware for Route Protection
+ * Next.js Proxy for Route Protection
  *
  * Protects routes by checking for authentication before allowing access.
  * Uncomment and configure as needed for your application.
@@ -19,6 +19,11 @@ const publicRoutes = [
   "/login",
   "/signup",
   "/api/auth", // Better Auth API routes
+  "/api/chat", // Chat API (demo mode - no auth required)
+  "/api/embeddings", // Embeddings API (demo mode - no auth required)
+  "/api/chatbots", // Chatbot API routes (demo mode - no auth required)
+  "/api/demo", // Demo config routes
+  "/chatbots", // Chatbot pages (demo mode)
 ];
 
 /**
@@ -30,7 +35,7 @@ function isPublicRoute(pathname: string): boolean {
   );
 }
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Allow public routes
@@ -53,7 +58,7 @@ export function middleware(request: NextRequest) {
 }
 
 /**
- * Configure which routes the middleware runs on
+ * Configure which routes the proxy runs on
  *
  * This pattern excludes:
  * - _next/static (static files)

@@ -9,7 +9,6 @@ import {
   Warning,
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
 
 interface DemoModeBannerProps {
   /** Position of the banner */
@@ -201,20 +200,15 @@ export function DemoModeBanner({
               {expanded ? "Hide limitations" : "View limitations"}
             </button>
             {config.upgradeUrl && config.upgradeUrl !== "#" && (
-              <Button
-                size="sm"
-                className="bg-amber-600 text-white hover:bg-amber-700 dark:bg-amber-500 dark:hover:bg-amber-600"
-                render={
-                  <a
-                    href={config.upgradeUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  />
-                }
+              <a
+                href={config.upgradeUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-md bg-amber-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-amber-700 dark:bg-amber-500 dark:hover:bg-amber-600"
               >
                 Upgrade Now
-                <ArrowSquareOut className="h-3.5 w-3.5" data-icon="inline-end" />
-              </Button>
+                <ArrowSquareOut className="h-3.5 w-3.5" />
+              </a>
             )}
             {dismissible && (
               <button
@@ -373,15 +367,15 @@ export function FeatureGate({
         Upgrade your plan to unlock this feature
       </p>
       {upgradeUrl !== "#" && (
-        <Button
-          size="sm"
-          render={
-            <a href={upgradeUrl} target="_blank" rel="noopener noreferrer" />
-          }
+        <a
+          href={upgradeUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
         >
           Upgrade Now
-          <ArrowSquareOut className="h-3.5 w-3.5" data-icon="inline-end" />
-        </Button>
+          <ArrowSquareOut className="h-3.5 w-3.5" />
+        </a>
       )}
     </div>
   );

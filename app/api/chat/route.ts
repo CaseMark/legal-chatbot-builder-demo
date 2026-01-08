@@ -3,8 +3,6 @@ import {
   tokenLimitService,
   estimateTokens,
   estimateMessageTokens,
-  getRequestContext,
-  createLimitErrorResponse,
 } from "@/lib/demo-limits";
 
 export async function POST(req: Request) {
@@ -22,10 +20,32 @@ export async function POST(req: Request) {
   const adminKey = headers.get("x-admin-key") || undefined;
 
   try {
-    const { messages, context, researchMode } = await req.json();
+    const { 
+      message,           // Single message from client
+      messages,          // Or array of messages (legacy support)
+      context,           // RAG context from client-side search
+      systemPrompt,      // Custom system prompt from chatbot settings
+      conversationHistory, // Previous messages for context
+      researchMode 
+    } = await req.json();
+
+    // Build messages array
+    let chatMessages: Array<{ role: string; content: string }> = [];
+    
+    if (messages) {
+      // Legacy format: array of messages
+      chatMessages = messages;
+    } else if (message) {
+      // New format: single message with conversation history
+      if (conversationHistory && Array.isArray(conversationHistory)) {
+        chatMessages = [...conversationHistory, { role: "user", content: message }];
+      } else {
+        chatMessages = [{ role: "user", content: message }];
+      }
+    }
 
     // Get the last user message for PII checking
-    const lastMessage = messages[messages.length - 1];
+    const lastMessage = chatMessages[chatMessages.length - 1];
     const userQuery = lastMessage?.content || "";
 
     // Check for PII if research mode is enabled
@@ -48,7 +68,7 @@ export async function POST(req: Request) {
     }
 
     // Estimate tokens for this request
-    const estimatedInputTokens = estimateMessageTokens(messages);
+    const estimatedInputTokens = estimateMessageTokens(chatMessages);
     const estimatedOutputTokens = 1000; // Buffer for response
     const totalEstimatedTokens = estimatedInputTokens + estimatedOutputTokens;
 
@@ -61,7 +81,6 @@ export async function POST(req: Request) {
     );
 
     if (!limitCheck.allowed) {
-      // Use the standardized error response
       return new Response(
         JSON.stringify({
           error: "TOKEN_LIMIT_EXCEEDED",
@@ -86,13 +105,13 @@ export async function POST(req: Request) {
       );
     }
 
-    // Build system prompt
-    const systemPrompt = buildSystemPrompt(context, researchMode);
+    // Build system prompt (use custom prompt if provided)
+    const finalSystemPrompt = buildSystemPrompt(context, systemPrompt, researchMode);
 
     // Build full messages array
     const fullMessages = [
-      { role: "system" as const, content: systemPrompt },
-      ...messages.map((m: { role: string; content: string }) => ({
+      { role: "system" as const, content: finalSystemPrompt },
+      ...chatMessages.map((m: { role: string; content: string }) => ({
         role: m.role as "user" | "assistant",
         content: m.content,
       })),
@@ -115,11 +134,16 @@ export async function POST(req: Request) {
       );
     }
 
-    // Make API call (using OpenAI-compatible endpoint)
-    const baseUrl = process.env.LLM_BASE_URL || "https://api.openai.com/v1";
-    const model = process.env.LLM_MODEL || "gpt-4o-mini";
+    // Make API call (using Case.dev LLM endpoint)
+    const baseUrl = process.env.LLM_BASE_URL || "https://api.case.dev";
+    const model = process.env.LLM_MODEL || "anthropic/claude-sonnet-4-20250514";
 
-    const response = await fetch(`${baseUrl}/chat/completions`, {
+    // Case.dev uses /llm/v1/chat/completions, OpenAI uses /v1/chat/completions
+    const endpoint = baseUrl.includes("case.dev") 
+      ? `${baseUrl}/llm/v1/chat/completions`
+      : `${baseUrl}/chat/completions`;
+
+    const response = await fetch(endpoint, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -128,7 +152,7 @@ export async function POST(req: Request) {
       body: JSON.stringify({
         model,
         messages: fullMessages,
-        stream: true,
+        stream: false, // Non-streaming for simpler client handling
         temperature: 0.3,
         max_tokens: 2000,
       }),
@@ -149,87 +173,34 @@ export async function POST(req: Request) {
       );
     }
 
-    // Create streaming response
-    const stream = new ReadableStream({
-      async start(controller) {
-        const reader = response.body?.getReader();
-        const decoder = new TextDecoder();
-        let outputContent = "";
+    const data = await response.json();
+    const assistantContent = data.choices?.[0]?.message?.content || "";
+    
+    // Calculate and track actual usage
+    const outputTokens = estimateTokens(assistantContent);
+    const totalTokens = estimatedInputTokens + outputTokens;
 
-        if (!reader) {
-          controller.close();
-          return;
-        }
+    // Track usage in the token limit service
+    await tokenLimitService.trackUsage(userId, sessionId, totalTokens);
 
-        try {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-
-            const chunk = decoder.decode(value, { stream: true });
-            const lines = chunk.split("\n").filter((line) => line.trim());
-
-            for (const line of lines) {
-              if (line.startsWith("data: ")) {
-                const data = line.slice(6);
-                if (data === "[DONE]") {
-                  // Calculate and track actual usage
-                  const outputTokens = estimateTokens(outputContent);
-                  const totalTokens = estimatedInputTokens + outputTokens;
-
-                  // Track usage in the token limit service
-                  await tokenLimitService.trackUsage(
-                    userId,
-                    sessionId,
-                    totalTokens
-                  );
-
-                  // Send complete event with usage info
-                  controller.enqueue(
-                    `data: ${JSON.stringify({
-                      type: "complete",
-                      usage: {
-                        prompt_tokens: estimatedInputTokens,
-                        completion_tokens: outputTokens,
-                        total_tokens: totalTokens,
-                      },
-                    })}\n\n`
-                  );
-                  controller.enqueue("data: [DONE]\n\n");
-                  continue;
-                }
-
-                try {
-                  const parsed = JSON.parse(data);
-                  const content = parsed.choices?.[0]?.delta?.content;
-                  if (content) {
-                    outputContent += content;
-                    controller.enqueue(
-                      `data: ${JSON.stringify({ type: "chunk", content })}\n\n`
-                    );
-                  }
-                } catch {
-                  // Skip malformed JSON
-                }
-              }
-            }
-          }
-        } catch (error) {
-          console.error("Stream processing error:", error);
-          controller.error(error);
-        } finally {
-          controller.close();
-        }
-      },
-    });
-
-    return new Response(stream, {
-      headers: {
-        "Content-Type": "text/event-stream",
-        "Cache-Control": "no-cache",
-        Connection: "keep-alive",
-      },
-    });
+    // Return response
+    return new Response(
+      JSON.stringify({
+        message: {
+          role: "assistant",
+          content: assistantContent,
+        },
+        usage: {
+          prompt_tokens: estimatedInputTokens,
+          completion_tokens: outputTokens,
+          total_tokens: totalTokens,
+        },
+      }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
   } catch (error) {
     console.error("Error in chat API:", error);
     return new Response(
@@ -246,13 +217,15 @@ export async function POST(req: Request) {
 }
 
 function buildSystemPrompt(
-  context?: {
-    contextText: string;
-    sources: Array<{ fileName: string; pageCitations?: number[] }>;
-  },
+  context?: string | {
+    contextText?: string;
+    sources?: Array<{ fileName: string; pageNumber?: number }>;
+  } | null,
+  customSystemPrompt?: string,
   researchMode?: boolean
 ): string {
-  const basePrompt = `You are a helpful AI assistant for legal document analysis and research. You provide clear, accurate, and professional responses.
+  // Use custom system prompt if provided, otherwise use default
+  const basePrompt = customSystemPrompt || `You are a helpful AI assistant for legal document analysis and research. You provide clear, accurate, and professional responses.
 
 Your capabilities:
 - Legal document analysis and summarization
@@ -267,23 +240,36 @@ Response Guidelines:
 - Include citations when referencing documents
 - Be concise but thorough`;
 
+  // Handle context - can be string or object
   if (context) {
-    return `${basePrompt}
+    let contextText = "";
+    let sources: Array<{ fileName: string; pageNumber?: number }> = [];
+    
+    if (typeof context === "string") {
+      contextText = context;
+    } else if (typeof context === "object") {
+      contextText = context.contextText || "";
+      sources = context.sources || [];
+    }
+
+    if (contextText) {
+      const sourcesStr = sources.length > 0 
+        ? `\n\nSOURCES: ${sources.map((s) => {
+            let citation = s.fileName;
+            if (s.pageNumber) {
+              citation += ` (page ${s.pageNumber})`;
+            }
+            return citation;
+          }).join(", ")}`
+        : "";
+
+      return `${basePrompt}
 
 RELEVANT DOCUMENT CONTEXT:
-${context.contextText}
-
-SOURCES: ${context.sources
-      .map((s) => {
-        let citation = s.fileName;
-        if (s.pageCitations && s.pageCitations.length > 0) {
-          citation += ` (page ${s.pageCitations.join(", ")})`;
-        }
-        return citation;
-      })
-      .join(", ")}
+${contextText}${sourcesStr}
 
 When answering, prioritize information from the provided document context and cite your sources.`;
+    }
   }
 
   if (researchMode) {

@@ -1,5 +1,3 @@
-"use server";
-
 import { DEFAULT_DEMO_LIMITS, DemoLimits } from "@/lib/case-api/types";
 
 // In-memory usage tracking (resets on server restart)

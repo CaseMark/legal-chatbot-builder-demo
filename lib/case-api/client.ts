@@ -406,14 +406,6 @@ export async function loadChatbotMetadata(
   }
 }
 
-// Helper to filter out metadata files from document lists
-export function filterMetadataFiles(
-  objects: Array<{ id: string; filename: string; [key: string]: unknown }>
-): Array<{ id: string; filename: string; [key: string]: unknown }> {
-  const metadataFiles = [".chat-history.json", ".chatbot-metadata.json"];
-  return objects.filter((obj) => !metadataFiles.includes(obj.filename));
-}
-
 // RAG Chat - combines search and LLM
 export async function ragChat(
   vaultId: string,
