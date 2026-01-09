@@ -4,6 +4,12 @@ import {
   estimateTokens,
   estimateMessageTokens,
 } from "@/lib/demo-limits";
+import {
+  checkRateLimit,
+  recordRequest,
+  getUserTierFromHeaders,
+  createRateLimitErrorResponse,
+} from "@/lib/demo-limits/rate-limiter";
 
 export async function POST(req: Request) {
   // Extract request context for limit tracking
@@ -67,10 +73,33 @@ export async function POST(req: Request) {
       }
     }
 
+    // 1. Check API-level rate limits (requests per minute/hour/day + throttling)
+    const userTier = getUserTierFromHeaders(headers);
+    const rateLimitResult = checkRateLimit(userId, userTier);
+    
+    if (!rateLimitResult.allowed) {
+      return createRateLimitErrorResponse(rateLimitResult);
+    }
+
     // Estimate tokens for this request
     const estimatedInputTokens = estimateMessageTokens(chatMessages);
     const estimatedOutputTokens = 1000; // Buffer for response
     const totalEstimatedTokens = estimatedInputTokens + estimatedOutputTokens;
+
+    // Force refresh config from environment on each request (for debugging)
+    tokenLimitService.refreshConfig();
+    
+    // DEBUG: Log config and token estimates
+    const currentConfig = tokenLimitService.getConfig();
+    console.log("[DEBUG] Token Limit Config:", JSON.stringify(currentConfig, null, 2));
+    console.log("[DEBUG] Estimated tokens:", { estimatedInputTokens, estimatedOutputTokens, totalEstimatedTokens });
+    console.log("[DEBUG] Per-request limit:", currentConfig.perRequestLimit);
+    console.log("[DEBUG] Will exceed per-request?", totalEstimatedTokens > currentConfig.perRequestLimit);
+    console.log("[DEBUG] ENV VARS:", {
+      DEMO_TOKEN_LIMIT_PER_REQUEST: process.env.DEMO_TOKEN_LIMIT_PER_REQUEST,
+      DEMO_TOKEN_LIMIT_PER_SESSION: process.env.DEMO_TOKEN_LIMIT_PER_SESSION,
+      DEMO_TOKEN_LIMIT_PER_DAY: process.env.DEMO_TOKEN_LIMIT_PER_DAY,
+    });
 
     // Check all token limits (per-request, session, daily, monthly)
     const limitCheck = await tokenLimitService.checkLimits(
@@ -182,6 +211,9 @@ export async function POST(req: Request) {
 
     // Track usage in the token limit service
     await tokenLimitService.trackUsage(userId, sessionId, totalTokens);
+
+    // Record successful request for rate limiting
+    recordRequest(userId);
 
     // Return response
     return new Response(

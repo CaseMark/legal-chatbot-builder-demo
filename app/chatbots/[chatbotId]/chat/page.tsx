@@ -129,16 +129,16 @@ export default function ChatbotChatPage() {
       if (response.ok) {
         const data = await response.json();
 
-        // Add assistant message to localStorage with sources
+        // Add assistant message to localStorage with sources including text excerpts
         addMessage(
           "assistant",
           data.message.content,
-          ragContext?.sources?.map((s: ChatSource) => ({
-            text: "", // We don't store the full text in sources
-            filename: s.fileName,
+          ragContext?.relevantChunks?.map((item) => ({
+            text: item.chunk.content.slice(0, 300) + (item.chunk.content.length > 300 ? "..." : ""), // Include text excerpt
+            filename: item.chunk.metadata.fileName,
             objectId: "",
-            page: s.pageNumber,
-            score: 0,
+            page: item.chunk.metadata.pageNumber,
+            score: item.combinedScore || item.similarity || 0,
           }))
         );
       } else {
@@ -469,6 +469,11 @@ function SourcesDropdown({ sources }: { sources: Array<{
                 {source.filename}
                 {source.page && ` (page ${source.page})`}
               </div>
+              {source.text && (
+                <p className="mt-1 text-muted-foreground italic line-clamp-3">
+                  "{source.text}"
+                </p>
+              )}
             </div>
           ))}
         </div>

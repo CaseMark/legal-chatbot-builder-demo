@@ -64,3 +64,20 @@ export {
   trackOcrUsage,
   getUsageStats as getUsageStatsLegacy,
 } from "./token-tracker";
+
+// Rate Limiter (API-level rate limiting, throttling, tiered limits)
+export {
+  rateLimiter,
+  checkRateLimit,
+  recordRequest,
+  getUserTierFromHeaders,
+  createRateLimitErrorResponse,
+  getRateLimitStats,
+  getRateLimitConfig,
+} from "./rate-limiter";
+export type {
+  UserTier,
+  TierLimits,
+  RateLimitConfig,
+  RateLimitResult,
+} from "./rate-limiter";

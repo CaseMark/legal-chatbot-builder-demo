@@ -6,10 +6,22 @@
  * - Per-session: Track cumulative tokens within a browser session
  * - Per-user daily: Track daily usage per user/IP
  * - Per-user monthly: Track monthly usage per user/IP
+ *
+ * Supports tiered limits:
+ * - Demo: Most restrictive (default)
+ * - Authenticated: More generous
+ * - Premium: Very generous
+ * - Admin: Unlimited
  */
 
 import { getDemoLimits, DemoLimitsConfig } from "./demo-limits.config";
 import { logLimitHit } from "./limit-analytics";
+import { 
+  UserTier, 
+  TierLimits, 
+  getRateLimitConfig,
+  getUserTierFromHeaders 
+} from "./rate-limiter";
 
 // Legacy config adapter for backward compatibility
 import { getTokenLimitConfig, TokenLimitConfig } from "./config";

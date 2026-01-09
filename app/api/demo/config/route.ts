@@ -23,6 +23,9 @@ export async function GET() {
   const ocrDailyPageLimit = parseInt(process.env.DEMO_OCR_DAILY_PAGE_LIMIT || "50", 10);
   const ocrMaxDocsPerSession = parseInt(process.env.DEMO_OCR_MAX_DOCS_PER_SESSION || "5", 10);
 
+  // Document limits
+  const maxDocumentsPerChatbot = parseInt(process.env.MAX_DOCUMENTS_PER_CHATBOT || "10", 10);
+
   // Feature flags
   const features = {
     enableExport: process.env.DEMO_FEATURE_EXPORT === "true",
@@ -67,6 +70,16 @@ export async function GET() {
       contactEmail,
       demoExpiryDays,
       features,
+    },
+    limits: {
+      maxDocumentsPerChatbot,
+      tokenLimitPerRequest,
+      tokenLimitPerSession,
+      tokenLimitPerDay,
+      ocrMaxFileSizeMB,
+      ocrMaxPagesPerDoc,
+      ocrDailyPageLimit,
+      ocrMaxDocsPerSession,
     },
     limitsSummary,
     disabledFeatures,

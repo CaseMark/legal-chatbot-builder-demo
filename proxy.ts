@@ -1,8 +1,8 @@
 /**
- * Next.js Proxy for Route Protection
+ * Next.js Proxy
  *
- * Protects routes by checking for authentication before allowing access.
- * Uncomment and configure as needed for your application.
+ * For demo mode, all routes are accessible without authentication.
+ * When you're ready to add authentication, uncomment the auth logic below.
  *
  * @see skills/auth/SKILL.md for detailed documentation
  */
@@ -10,62 +10,52 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-/**
- * Routes that don't require authentication
- * Add public routes here (marketing pages, login, signup, etc.)
- */
-const publicRoutes = [
-  "/",
-  "/login",
-  "/signup",
-  "/api/auth", // Better Auth API routes
-  "/api/chat", // Chat API (demo mode - no auth required)
-  "/api/embeddings", // Embeddings API (demo mode - no auth required)
-  "/api/chatbots", // Chatbot API routes (demo mode - no auth required)
-  "/api/demo", // Demo config routes
-  "/api-reference", // API reference docs
-  "/chatbots", // Chatbot pages (demo mode)
-];
-
-/**
- * Check if a path matches any of the public routes
- */
-function isPublicRoute(pathname: string): boolean {
-  return publicRoutes.some(
-    (route) => pathname === route || pathname.startsWith(`${route}/`)
-  );
-}
-
 export function proxy(request: NextRequest) {
-  const { pathname } = request.nextUrl;
-
-  // Allow public routes
-  if (isPublicRoute(pathname)) {
-    return NextResponse.next();
-  }
-
-  // Check for session cookie
-  // Better Auth uses "better-auth.session_token" by default
-  const sessionCookie = request.cookies.get("better-auth.session_token");
-
-  if (!sessionCookie) {
-    // Redirect to login with callback URL
-    const loginUrl = new URL("/login", request.url);
-    loginUrl.searchParams.set("callbackUrl", pathname);
-    return NextResponse.redirect(loginUrl);
-  }
-
+  // Demo mode: Allow all routes without authentication
   return NextResponse.next();
+
+  // ============================================================================
+  // AUTHENTICATION (Uncomment when ready to enable auth)
+  // ============================================================================
+  // 
+  // const { pathname } = request.nextUrl;
+  // 
+  // // Routes that don't require authentication
+  // const publicRoutes = [
+  //   "/",
+  //   "/login",
+  //   "/signup",
+  //   "/api/auth",
+  //   "/api/chat",
+  //   "/api/embeddings",
+  //   "/api/chatbots",
+  //   "/api/demo",
+  //   "/chatbots",
+  // ];
+  // 
+  // // Check if this is a public route
+  // const isPublicRoute = publicRoutes.some(
+  //   (route) => pathname === route || pathname.startsWith(`${route}/`)
+  // );
+  // 
+  // if (isPublicRoute) {
+  //   return NextResponse.next();
+  // }
+  // 
+  // // Check for session cookie
+  // const sessionCookie = request.cookies.get("better-auth.session_token");
+  // 
+  // if (!sessionCookie) {
+  //   const loginUrl = new URL("/login", request.url);
+  //   loginUrl.searchParams.set("callbackUrl", pathname);
+  //   return NextResponse.redirect(loginUrl);
+  // }
+  // 
+  // return NextResponse.next();
 }
 
 /**
  * Configure which routes the proxy runs on
- *
- * This pattern excludes:
- * - _next/static (static files)
- * - _next/image (image optimization)
- * - favicon.ico
- * - public files (svg, png, jpg, etc.)
  */
 export const config = {
   matcher: [

@@ -45,6 +45,10 @@ export default function ChatbotManagePage() {
   );
   const [dragActive, setDragActive] = useState(false);
   const [ragService, setRagService] = useState<RAGService | null>(null);
+  
+  // Demo limits
+  const [maxDocuments, setMaxDocuments] = useState<number>(10);
+  const [limitReached, setLimitReached] = useState(false);
 
   // Settings form state - initialized from localStorage chatbot
   const [settings, setSettings] = useState({
@@ -65,6 +69,30 @@ export default function ChatbotManagePage() {
     };
     initRAG();
   }, [chatbotId]);
+
+  // Fetch demo config for limits
+  useEffect(() => {
+    const fetchDemoConfig = async () => {
+      try {
+        const response = await fetch("/api/demo/config");
+        if (response.ok) {
+          const data = await response.json();
+          if (data.limits?.maxDocumentsPerChatbot) {
+            setMaxDocuments(data.limits.maxDocumentsPerChatbot);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to fetch demo config:", error);
+      }
+    };
+    fetchDemoConfig();
+  }, []);
+
+  // Update limitReached when documents change
+  useEffect(() => {
+    const completedDocs = documents.filter(d => d.status === "completed").length;
+    setLimitReached(completedDocs >= maxDocuments);
+  }, [documents, maxDocuments]);
 
   // Update settings form when chatbot loads from localStorage
   useEffect(() => {
@@ -113,9 +141,24 @@ export default function ChatbotManagePage() {
   async function handleFileUpload(files: FileList | null) {
     if (!files || files.length === 0 || !ragService) return;
 
+    // Check document limit
+    const completedDocs = documents.filter(d => d.status === "completed").length;
+    const remainingSlots = maxDocuments - completedDocs;
+    
+    if (remainingSlots <= 0) {
+      alert(`Document limit reached. You can upload a maximum of ${maxDocuments} documents per chatbot in demo mode.`);
+      return;
+    }
+    
+    // Limit files to remaining slots
+    const filesToUpload = Array.from(files).slice(0, remainingSlots);
+    if (filesToUpload.length < files.length) {
+      alert(`Only uploading ${filesToUpload.length} of ${files.length} files due to the ${maxDocuments} document limit.`);
+    }
+
     setUploading(true);
 
-    for (const file of Array.from(files)) {
+    for (const file of filesToUpload) {
       const tempId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       
       // Add temporary document entry
@@ -380,17 +423,35 @@ export default function ChatbotManagePage() {
               </p>
             </div>
 
+            {/* Document Limit Counter */}
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">
+                <span className="font-medium text-foreground">
+                  {documents.filter(d => d.status === "completed").length}
+                </span>
+                {" / "}
+                {maxDocuments} documents uploaded
+              </p>
+              {limitReached && (
+                <span className="text-sm font-medium text-amber-600">
+                  Document limit reached
+                </span>
+              )}
+            </div>
+
             {/* Upload Area */}
             <div
-              onDragEnter={handleDrag}
-              onDragLeave={handleDrag}
-              onDragOver={handleDrag}
-              onDrop={handleDrop}
+              onDragEnter={!limitReached ? handleDrag : undefined}
+              onDragLeave={!limitReached ? handleDrag : undefined}
+              onDragOver={!limitReached ? handleDrag : undefined}
+              onDrop={!limitReached ? handleDrop : undefined}
               className={cn(
                 "rounded-xl border-2 border-dashed p-8 text-center transition-colors",
-                dragActive
-                  ? "border-primary bg-primary/5"
-                  : "border-border hover:border-muted-foreground/50"
+                limitReached
+                  ? "border-border bg-muted/30 cursor-not-allowed opacity-60"
+                  : dragActive
+                    ? "border-primary bg-primary/5"
+                    : "border-border hover:border-muted-foreground/50"
               )}
             >
               <input
@@ -400,11 +461,19 @@ export default function ChatbotManagePage() {
                 accept=".pdf,.txt,.docx"
                 onChange={(e) => handleFileUpload(e.target.files)}
                 className="hidden"
+                disabled={limitReached}
               />
-              <label htmlFor="file-upload" className="cursor-pointer">
-                <CloudArrowUp className="mx-auto h-12 w-12 text-muted-foreground" />
+              <label htmlFor="file-upload" className={limitReached ? "cursor-not-allowed" : "cursor-pointer"}>
+                <CloudArrowUp className={cn(
+                  "mx-auto h-12 w-12",
+                  limitReached ? "text-muted-foreground/40" : "text-muted-foreground"
+                )} />
                 <p className="mt-4 text-sm text-muted-foreground">
-                  {uploading ? (
+                  {limitReached ? (
+                    <span className="text-muted-foreground">
+                      Document limit reached ({maxDocuments} max)
+                    </span>
+                  ) : uploading ? (
                     <span className="text-primary">Processing documents...</span>
                   ) : (
                     <>
@@ -416,7 +485,10 @@ export default function ChatbotManagePage() {
                   )}
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  PDF, TXT, DOCX (processed locally in your browser)
+                  {limitReached 
+                    ? "Delete existing documents to upload more"
+                    : "PDF, TXT, DOCX (processed locally in your browser)"
+                  }
                 </p>
               </label>
             </div>

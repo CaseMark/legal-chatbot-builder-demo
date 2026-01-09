@@ -75,26 +75,18 @@ export function DemoModeBanner({
     fetchConfig();
   }, []);
 
-  // Check localStorage for dismissed state
+  // Check sessionStorage for dismissed state (resets on new page visit)
   useEffect(() => {
-    const dismissedUntil = localStorage.getItem("demo-banner-dismissed");
-    if (dismissedUntil) {
-      const until = parseInt(dismissedUntil, 10);
-      if (Date.now() < until) {
-        setDismissed(true);
-      } else {
-        localStorage.removeItem("demo-banner-dismissed");
-      }
+    const isDismissed = sessionStorage.getItem("demo-banner-dismissed");
+    if (isDismissed === "true") {
+      setDismissed(true);
     }
   }, []);
 
   const handleDismiss = () => {
     setDismissed(true);
-    // Dismiss for 24 hours
-    localStorage.setItem(
-      "demo-banner-dismissed",
-      (Date.now() + 24 * 60 * 60 * 1000).toString()
-    );
+    // Dismiss only for current session - will reappear on next page visit
+    sessionStorage.setItem("demo-banner-dismissed", "true");
   };
 
   if (dismissed || !config?.isDemoMode) {
@@ -263,7 +255,7 @@ export function DemoModeBanner({
                 <div>
                   <h4 className="mb-1.5 flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-amber-900 dark:text-amber-100">
                     <Info className="h-3 w-3" />
-                    Upgrade to unlock
+                    Feature Limits
                   </h4>
                   <ul className="space-y-0.5 text-xs text-amber-700 dark:text-amber-300">
                     {disabledFeatures.slice(0, 5).map((feature, i) => (
