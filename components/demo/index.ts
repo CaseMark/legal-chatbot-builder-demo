@@ -7,8 +7,10 @@ export { UsageMeter, UsageIndicator } from "./usage-meter";
 export {
   DemoModeBanner,
   DemoModeBadge,
-  FeatureGate,
 } from "./demo-mode-banner";
+
+// Usage stats card
+export { UsageStatsCard, UsageMeter as UsageMeterCard } from "./usage-stats-card";
 
 // Limit warnings and modals
 export {

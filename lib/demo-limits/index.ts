@@ -14,6 +14,7 @@ export type {
   FeatureFlags,
   AdminConfig,
   DemoAppConfig,
+  SessionPriceLimits,
 } from "./demo-limits.config";
 
 // Legacy Configuration (Backward Compatibility)

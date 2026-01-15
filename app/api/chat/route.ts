@@ -3,6 +3,7 @@ import {
   tokenLimitService,
   estimateTokens,
   estimateMessageTokens,
+  getDemoLimits,
 } from "@/lib/demo-limits";
 import {
   checkRateLimit,
@@ -10,6 +11,9 @@ import {
   getUserTierFromHeaders,
   createRateLimitErrorResponse,
 } from "@/lib/demo-limits/rate-limiter";
+
+// Price per 1000 characters for cost estimation
+const PRICE_PER_THOUSAND_CHARS = 0.0005;
 
 export async function POST(req: Request) {
   // Extract request context for limit tracking
@@ -204,10 +208,15 @@ export async function POST(req: Request) {
 
     const data = await response.json();
     const assistantContent = data.choices?.[0]?.message?.content || "";
-    
+
     // Calculate and track actual usage
     const outputTokens = estimateTokens(assistantContent);
     const totalTokens = estimatedInputTokens + outputTokens;
+
+    // Calculate cost based on total characters processed
+    // We count both input (user message + context) and output (assistant response)
+    const totalChars = userQuery.length + (typeof context === 'string' ? context.length : 0) + assistantContent.length;
+    const cost = (totalChars / 1000) * PRICE_PER_THOUSAND_CHARS;
 
     // Track usage in the token limit service
     await tokenLimitService.trackUsage(userId, sessionId, totalTokens);
@@ -215,7 +224,7 @@ export async function POST(req: Request) {
     // Record successful request for rate limiting
     recordRequest(userId);
 
-    // Return response
+    // Return response with cost info for client-side tracking
     return new Response(
       JSON.stringify({
         message: {
@@ -227,6 +236,8 @@ export async function POST(req: Request) {
           completion_tokens: outputTokens,
           total_tokens: totalTokens,
         },
+        cost: cost, // Cost in dollars for this request
+        charsProcessed: totalChars,
       }),
       {
         status: 200,

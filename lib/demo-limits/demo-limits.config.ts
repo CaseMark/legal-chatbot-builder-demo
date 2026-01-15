@@ -84,12 +84,24 @@ export interface DemoAppConfig {
   demoExpiryDays: number;
 }
 
+export interface SessionPriceLimits {
+  /** Session duration in hours (default: 24) */
+  sessionHours: number;
+  /** Maximum price allowed per session in dollars (default: 5) */
+  sessionPriceLimit: number;
+  /** Price per 1000 characters processed (default: 0.0005) */
+  pricePerThousandChars: number;
+  /** Maximum documents per session (default: 20) */
+  maxDocumentsPerSession: number;
+}
+
 export interface DemoLimitsConfig {
   tokens: TokenLimits;
   ocr: OCRLimits;
   features: FeatureFlags;
   admin: AdminConfig;
   app: DemoAppConfig;
+  session: SessionPriceLimits;
 }
 
 // =============================================================================
@@ -107,6 +119,13 @@ function parseBoolEnv(key: string, defaultValue: boolean): boolean {
   const value = process.env[key];
   if (!value) return defaultValue;
   return value.toLowerCase() === "true" || value === "1";
+}
+
+function parseFloatEnv(key: string, defaultValue: number): number {
+  const value = process.env[key];
+  if (!value) return defaultValue;
+  const parsed = parseFloat(value);
+  return isNaN(parsed) ? defaultValue : parsed;
 }
 
 function parseStringEnv(key: string, defaultValue: string): string {
@@ -182,9 +201,17 @@ export function getDemoLimitsConfig(): DemoLimitsConfig {
     app: {
       isDemoMode: parseBoolEnv("DEMO_MODE", true),
       appName: parseStringEnv("DEMO_APP_NAME", "Legal Chatbot Builder"),
-      upgradeUrl: parseStringEnv("DEMO_UPGRADE_URL", "https://example.com/pricing"),
+      upgradeUrl: parseStringEnv("DEMO_UPGRADE_URL", "https://case.dev"),
       contactEmail: parseStringEnv("DEMO_CONTACT_EMAIL", "sales@example.com"),
       demoExpiryDays: parseIntEnv("DEMO_EXPIRY_DAYS", 0),
+    },
+
+    // Session Price Limits (for cost-based tracking)
+    session: {
+      sessionHours: parseIntEnv("DEMO_SESSION_HOURS", 24),
+      sessionPriceLimit: parseFloatEnv("DEMO_SESSION_PRICE_LIMIT", 5),
+      pricePerThousandChars: 0.0005, // $0.0005 per 1000 characters (~$0.50 per million chars)
+      maxDocumentsPerSession: parseIntEnv("DEMO_MAX_DOCUMENTS_PER_SESSION", 20),
     },
   };
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   Plus,
@@ -13,7 +13,10 @@ import {
 } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { DemoModeBanner } from "@/components/demo/demo-mode-banner";
+import { UsageStatsCard } from "@/components/demo/usage-stats-card";
 import { useChatbots } from "@/hooks/use-chatbot-storage";
+import { getSessionStats, calculateTimeRemaining } from "@/lib/session-storage";
+import { getDemoLimits } from "@/lib/demo-limits";
 
 export default function HomePage() {
   const { chatbots, isLoading, createChatbot, deleteChatbot } = useChatbots();
@@ -25,6 +28,23 @@ export default function HomePage() {
     name: "",
     description: "",
   });
+
+  // Session stats for usage tracking
+  const [sessionStats, setSessionStats] = useState(() => getSessionStats());
+  const [timeRemaining, setTimeRemaining] = useState("");
+  const demoLimits = getDemoLimits();
+
+  // Update stats periodically
+  useEffect(() => {
+    const updateStats = () => {
+      const stats = getSessionStats();
+      setSessionStats(stats);
+      setTimeRemaining(calculateTimeRemaining(stats.sessionResetAt));
+    };
+    updateStats();
+    const interval = setInterval(updateStats, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   async function handleCreateChatbot(e: React.FormEvent) {
     e.preventDefault();
@@ -129,13 +149,16 @@ export default function HomePage() {
 
       {/* Main Content */}
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        {error && (
-          <div className="mb-6 rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-            {error}
-          </div>
-        )}
+        <div className="flex flex-col gap-6 lg:flex-row">
+          {/* Main chatbots area */}
+          <div className="flex-1">
+            {error && (
+              <div className="mb-6 rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                {error}
+              </div>
+            )}
 
-        {isLoading ? (
+            {isLoading ? (
           <div className="flex h-64 items-center justify-center">
             <Spinner className="h-8 w-8 animate-spin text-primary" />
           </div>
@@ -212,8 +235,19 @@ export default function HomePage() {
                 </div>
               </div>
             ))}
+            </div>
+          )}
           </div>
-        )}
+
+          {/* Sidebar with usage stats */}
+          <div className="w-full lg:w-80 lg:flex-shrink-0">
+            <UsageStatsCard
+              priceUsed={sessionStats.sessionPrice}
+              priceLimit={demoLimits.session.sessionPriceLimit}
+              timeRemaining={timeRemaining}
+            />
+          </div>
+        </div>
       </main>
 
       {/* Create Modal */}

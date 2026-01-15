@@ -19,8 +19,15 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { DemoModeBanner } from "@/components/demo/demo-mode-banner";
 import { MarkdownRenderer } from "@/components/chat/markdown-renderer";
+import { UsageStatsCard } from "@/components/demo/usage-stats-card";
 import { useChatbotWithHistory } from "@/hooks/use-chatbot-storage";
 import { RAGService, RAGContext } from "@/lib/rag";
+import {
+  getSessionStats,
+  incrementSessionPrice,
+  calculateTimeRemaining,
+} from "@/lib/session-storage";
+import { getDemoLimits } from "@/lib/demo-limits";
 
 interface ChatSource {
   fileName: string;
@@ -48,8 +55,15 @@ export default function ChatbotChatPage() {
   const [ragService, setRagService] = useState<RAGService | null>(null);
   const [documentCount, setDocumentCount] = useState(0);
 
+  // Session stats for usage tracking
+  const [sessionStats, setSessionStats] = useState(() => getSessionStats());
+  const [timeRemaining, setTimeRemaining] = useState("");
+
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Demo limits from config
+  const demoLimits = getDemoLimits();
 
   // Initialize RAG service
   useEffect(() => {
@@ -57,13 +71,29 @@ export default function ChatbotChatPage() {
       const service = RAGService.getInstance();
       await service.initialize(chatbotId);
       setRagService(service);
-      
+
       // Get document count
       const docs = await service.getDocumentsForChatbot(chatbotId);
       setDocumentCount(docs.length);
     };
     initRAG();
   }, [chatbotId]);
+
+  // Update time remaining and refresh session stats periodically
+  useEffect(() => {
+    const updateStats = () => {
+      const stats = getSessionStats();
+      setSessionStats(stats);
+      setTimeRemaining(calculateTimeRemaining(stats.sessionResetAt));
+    };
+
+    // Initial update
+    updateStats();
+
+    // Update every minute
+    const interval = setInterval(updateStats, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -128,6 +158,13 @@ export default function ChatbotChatPage() {
 
       if (response.ok) {
         const data = await response.json();
+
+        // Track session cost if the API returned cost info
+        if (data.cost) {
+          incrementSessionPrice(data.cost);
+          // Refresh stats to update the UI
+          setSessionStats(getSessionStats());
+        }
 
         // Add assistant message to localStorage with sources including text excerpts
         addMessage(
@@ -218,18 +255,28 @@ export default function ChatbotChatPage() {
             <div>
               <h1 className="font-semibold text-foreground">{chatbot.name}</h1>
               <p className="text-xs text-muted-foreground">
-                {documentCount > 0 
+                {documentCount > 0
                   ? `${documentCount} document${documentCount !== 1 ? 's' : ''} in knowledge base`
                   : "No documents uploaded yet"}
               </p>
             </div>
           </div>
-          {messages.length > 0 && (
-            <Button variant="outline" size="sm" onClick={handleClearMessages}>
-              <Trash className="mr-2 h-4 w-4" />
-              Clear
-            </Button>
-          )}
+          <div className="flex items-center gap-2">
+            {/* Compact usage display */}
+            <div className="hidden sm:flex items-center gap-2 text-xs text-muted-foreground border rounded-lg px-2 py-1.5">
+              <span className="font-mono">
+                ${sessionStats.sessionPrice.toFixed(2)}/${demoLimits.session.sessionPriceLimit.toFixed(2)}
+              </span>
+              <span className="text-muted-foreground/60">|</span>
+              <span>{timeRemaining} left</span>
+            </div>
+            {messages.length > 0 && (
+              <Button variant="outline" size="sm" onClick={handleClearMessages}>
+                <Trash className="mr-2 h-4 w-4" />
+                Clear
+              </Button>
+            )}
+          </div>
         </div>
       </header>
 
